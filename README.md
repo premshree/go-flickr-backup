@@ -40,3 +40,11 @@ Once you authenticate with Flickr, flickr-backup stores the OAuth Token and Secr
 ![image](https://cloud.githubusercontent.com/assets/149517/17564684/436f723c-5f02-11e6-824f-810a4bbc352a.png)
 
 `backup` will spawn multiple `goroutine`s to process your photosets and download photos for those sets. At the end up of the run, the program will exit, with some information on total errors during the run.
+
+![image](https://cloud.githubusercontent.com/assets/149517/17565670/5ad1d790-5f06-11e6-904e-d03847e68acb.png)
+
+Note: by default, `backup` will download `10` photosets at page `1`. (If you have a total of `30` photosets, you have `3` "pages".) You can explicitly specify the page and photoset like so:
+```
+./backup -photosets=10 -page=26
+```
+

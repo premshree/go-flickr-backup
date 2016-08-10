@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -89,10 +90,16 @@ type PhotosChannelMessage struct {
 }
 
 var (
-	oauthConfig *OAuthConfig
+	oauthConfig    *OAuthConfig
+	pageNum        *int
+	photoSetsCount *int
 )
 
 func main() {
+	pageNum = flag.Int("page", 1, "Page number of photosets")
+	photoSetsCount = flag.Int("photosets", 10, "Number of photoset per run")
+	flag.Parse()
+
 	req := NewRequest()
 
 	oauthConfig = GetOAuthConfig()
@@ -141,15 +148,17 @@ func main() {
 	if err != nil {
 		fmt.Println("Error unmarshaling json: ", err)
 	}
-	msg := fmt.Sprintf("\n** Logged in as %s [%s]\n", userJson.User.Id, userJson.User.Username["_content"])
+	msg := fmt.Sprintf("\n** Logged in as %s [%s]", userJson.User.Id, userJson.User.Username["_content"])
 	fmt.Println(msg)
 
 	// get all photo sets
+	msg = fmt.Sprintf("** Backing up %d photosets, page %d\n", *photoSetsCount, *pageNum)
+	fmt.Println(msg)
 	start := time.Now()
 	req.Method = "flickr.photosets.getList"
 	req.Args["user_id"] = userJson.User.Id
-	req.Args["page"] = "1"
-	req.Args["per_page"] = "10"
+	req.Args["page"] = strconv.Itoa(*pageNum)
+	req.Args["per_page"] = strconv.Itoa(*photoSetsCount)
 	resp, err = req.ExecuteAuthenticated()
 	if err != nil {
 		fmt.Println("** Error executing method: ", err)
