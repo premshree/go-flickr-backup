@@ -48,3 +48,8 @@ Note: by default, `backup` will download `10` photosets at page `1`. (If you hav
 ./backup -photosets=10 -page=26
 ```
 
+You could just download all your sets at once. The number of sets you have, the number of photos in each set, and the size of photos in sets will affect the count of errors you may encounter.
+
+##### Contributing
+Pull requests welcome!
+
