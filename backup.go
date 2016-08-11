@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -168,6 +169,12 @@ func main() {
 	err = json.Unmarshal([]byte(resp), &photoSetsJson)
 	if err != nil {
 		fmt.Println("Error unmarshaling json: ", err)
+	}
+
+	if reflect.DeepEqual(photoSetsJson.Photosets.Photoset, []PhotoSet{}) {
+		msg = fmt.Sprintf("No photoset found! Are you sure you have %d photosets?", *pageNum**photoSetsCount)
+		fmt.Println(msg)
+		os.Exit(0)
 	}
 
 	photoSetsChan, photosChan := processPhotoSets(photoSetsJson.Photosets.Photoset)

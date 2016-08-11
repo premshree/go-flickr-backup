@@ -1,8 +1,13 @@
 ### Intoduction
-Go Flickr Backup is a simple tool to backup your Flickr photos from photosets. It doesn't do everything, but you should be able to modify it fairly easily.
+Go Flickr Backup is a simple command-line tool to backup your Flickr photos from photosets, written in Go. It doesn't do everything, but you should be able to modify it fairly easily.
+
+### Features
+* Retries for photo downloads
 
 ### Requirements
-This tool requires [`go-flickr`](https://github.com/premshree/go-flickr), which is forked from the [original](https://github.com/mncaudill/go-flickr) to add OAuth support. This tool also requires [`pester`](https://github.com/sethgrid/pester), which is a nifty little library that allows HTTP retries (and more).
+* You need [Go](https://golang.org/)
+* Patched version of [`go-flickr`](https://github.com/premshree/go-flickr), forked from the [original](https://github.com/mncaudill/go-flickr) to add OAuth support
+* [`pester`](https://github.com/sethgrid/pester), which is a nifty little library that allows HTTP retries (and more).
 
 ### Installing
 Make sure to install the requisites:
@@ -51,5 +56,5 @@ Note: by default, `backup` will download `10` photosets at page `1`. (If you hav
 You could just download all your sets at once. The number of sets you have, the number of photos in each set, and the size of photos in sets will affect the count of errors you may encounter.
 
 ### Contributing
-Pull requests welcome!
+The code here isn't as clean as I'd like, but it's pretty straightfoward to play around with.  Time permitting, I intend to continue to make it better. But... I'd love contributions - pull requests welcome. I'm also relatively new to Go, so I'm looking forward to up my idiomatic Go chops.
 
