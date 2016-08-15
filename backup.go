@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/premshree/go-flickr"
@@ -87,13 +88,15 @@ type PhotosChannelMessage struct {
 	Photo      Photo
 	Ok         bool
 	PhotoSetId string
-	Counts     []int
+	Counts     map[string]int
 }
 
 var (
 	oauthConfig    *OAuthConfig
 	pageNum        *int
 	photoSetsCount *int
+	req            *flickr.Request
+	wg             sync.WaitGroup
 )
 
 func main() {
@@ -101,7 +104,7 @@ func main() {
 	photoSetsCount = flag.Int("photosets", 10, "Number of photoset per run")
 	flag.Parse()
 
-	req := NewRequest()
+	req = NewRequest()
 
 	oauthConfig = GetOAuthConfig()
 
@@ -152,15 +155,21 @@ func main() {
 	msg := fmt.Sprintf("\n** Logged in as %s [%s]", userJson.User.Id, userJson.User.Username["_content"])
 	fmt.Println(msg)
 
-	// get all photo sets
-	msg = fmt.Sprintf("** Backing up %d photosets, page %d\n", *photoSetsCount, *pageNum)
+	// download all photo sets
+	wg.Add(1)
+	go DownloadPhotoSets(userJson.User.Id, &wg)
+	wg.Wait()
+}
+
+func DownloadPhotoSets(userId string, wg *sync.WaitGroup) {
+	msg := fmt.Sprintf("** Backing up %d photosets, page %d\n", *photoSetsCount, *pageNum)
 	fmt.Println(msg)
 	start := time.Now()
 	req.Method = "flickr.photosets.getList"
-	req.Args["user_id"] = userJson.User.Id
+	req.Args["user_id"] = userId
 	req.Args["page"] = strconv.Itoa(*pageNum)
 	req.Args["per_page"] = strconv.Itoa(*photoSetsCount)
-	resp, err = req.ExecuteAuthenticated()
+	resp, err := req.ExecuteAuthenticated()
 	if err != nil {
 		fmt.Println("** Error executing method: ", err)
 		os.Exit(0)
@@ -193,15 +202,15 @@ func main() {
 				status = "FAIL"
 			}
 
-			msg = fmt.Sprintf("--> Processed photo %s (%d/%d) [%s] ... %s", photoMsg.Photo.Id, photoMsg.Counts[0], photoMsg.Counts[2], photoMsg.Photo.Title, status)
+			msg = fmt.Sprintf("--> Processed photo %s (%d/%d) [%s] ... %s", photoMsg.Photo.Id, photoMsg.Counts["PhotoCount"], photoMsg.Counts["PhotoSetCount"], photoMsg.Photo.Title, status)
 			fmt.Println(msg)
 
 			// are all photos for a set processed?
-			if photoMsg.Counts[0] == photoMsg.Counts[2] {
-				msg = fmt.Sprintf("\n++ Finished processing all photos (%d) for set %s [error: %d]\n", photoMsg.Counts[0], photoMsg.PhotoSetId, photoMsg.Counts[1])
+			if photoMsg.Counts["PhotoCount"] == photoMsg.Counts["PhotoSetCount"] {
+				msg = fmt.Sprintf("\n++ Finished processing all photos (%d) for set %s [error: %d]\n", photoMsg.Counts["PhotoCount"], photoMsg.PhotoSetId, photoMsg.Counts["Errors"])
 				fmt.Println(msg)
 				processedSetsCount++
-				totalErrors += photoMsg.Counts[1]
+				totalErrors += photoMsg.Counts["Errors"]
 			}
 
 			// are all photosets processed?
@@ -209,11 +218,10 @@ func main() {
 				elapsed := time.Since(start)
 				msg = fmt.Sprintf("ALL DONE (elaspsed time: %s; total errors: %d)", elapsed, totalErrors)
 				fmt.Println(msg)
-				os.Exit(0)
+				wg.Done()
 			}
 		}
 	}
-
 }
 
 func processPhotoSets(photosets []PhotoSet) (<-chan []string, <-chan *PhotosChannelMessage) {
@@ -302,7 +310,11 @@ func processPhotos(photoSet PhotosPhotoSet, photosChan chan *PhotosChannelMessag
 				Photo:      photo,
 				Ok:         ok,
 				PhotoSetId: photoSetId,
-				Counts:     []int{photoCount, errorCount, photoSetCount},
+				Counts: map[string]int{
+					"PhotoCount":    photoCount,
+					"Errors":        errorCount,
+					"PhotoSetCount": photoSetCount,
+				},
 			}
 			photosChan <- update
 		}(photo)
