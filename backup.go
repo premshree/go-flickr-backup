@@ -24,6 +24,7 @@ const (
 	PHOTO_SIZE_ORIGINAL = "Original"
 	BACKUP_DIR          = "/path/to/backup-dir"
 	CONFIG_PATH         = "/path/to/config"
+	NOT_IN_SET          = "not-in-set"
 )
 
 type PhotoSetsJson struct {
@@ -44,6 +45,10 @@ type Meta map[string]string
 
 type PhotosJson struct {
 	Photoset PhotosPhotoSet
+}
+
+type PhotosNotInSetJson struct {
+	Photos PhotosPhotoSet
 }
 
 type PhotosPhotoSet struct {
@@ -95,6 +100,8 @@ var (
 	oauthConfig    *OAuthConfig
 	pageNum        *int
 	photoSetsCount *int
+	perPage        *int
+	notInSet       *bool
 	req            *flickr.Request
 	wg             sync.WaitGroup
 )
@@ -102,6 +109,8 @@ var (
 func main() {
 	pageNum = flag.Int("page", 1, "Page number of photosets")
 	photoSetsCount = flag.Int("photosets", 10, "Number of photoset per run")
+	perPage = flag.Int("per-page", 100, "Number of results per page")
+	notInSet = flag.Bool("notinset", false, "Download photos not in sets?")
 	flag.Parse()
 
 	req = NewRequest()
@@ -157,7 +166,13 @@ func main() {
 
 	// download all photo sets
 	wg.Add(1)
-	go DownloadPhotoSets(userJson.User.Id, &wg)
+
+	if *notInSet {
+		go DownloadNotInPhotoSets(userJson.User.Id, &wg)
+	} else {
+		go DownloadPhotoSets(userJson.User.Id, &wg)
+	}
+
 	wg.Wait()
 }
 
@@ -224,6 +239,54 @@ func DownloadPhotoSets(userId string, wg *sync.WaitGroup) {
 	}
 }
 
+func DownloadNotInPhotoSets(userId string, wg *sync.WaitGroup) {
+	var msg string
+	start := time.Now()
+
+	req := NewRequest()
+	req.OAuth.OAuthToken = oauthConfig.OAuthToken
+	req.OAuth.OAuthTokenSecret = oauthConfig.OAuthTokenSecret
+	req.Method = "flickr.photos.getNotInSet"
+	req.Args["page"] = strconv.Itoa(*pageNum)
+	req.Args["per_page"] = strconv.Itoa(*perPage)
+	resp, err := req.ExecuteAuthenticated()
+	if err != nil {
+		fmt.Println("** Error executing method: ", err)
+		os.Exit(0)
+	}
+
+	var photosJson PhotosNotInSetJson
+	err = json.Unmarshal([]byte(resp), &photosJson)
+	if err != nil {
+		fmt.Println("Error unmarshaling json: ", err)
+	}
+
+	photosChan := make(chan *PhotosChannelMessage)
+	processPhotos(photosJson.Photos, photosChan)
+
+	for {
+		select {
+		case photoMsg := <-photosChan:
+			status := "OK"
+			if !photoMsg.Ok {
+				status = "FAIL"
+			}
+			msg = fmt.Sprintf("--> Processed photo %s (%d/%d) [%s] ... %s", photoMsg.Photo.Id, photoMsg.Counts["PhotoCount"], photoMsg.Counts["PhotoSetCount"], photoMsg.Photo.Title, status)
+			fmt.Println(msg)
+			// are all photos processed?
+			if photoMsg.Counts["PhotoCount"] == photoMsg.Counts["PhotoSetCount"] {
+				msg = fmt.Sprintf("\n++ Finished processing all photos (%d) in this run [error: %d]\n", photoMsg.Counts["PhotoCount"], photoMsg.Counts["Errors"])
+				fmt.Println(msg)
+				elapsed := time.Since(start)
+				msg = fmt.Sprintf("ALL DONE (elaspsed time: %s)", elapsed)
+				fmt.Println(msg)
+				wg.Done()
+			}
+		}
+	}
+
+}
+
 func processPhotoSets(photosets []PhotoSet) (<-chan []string, <-chan *PhotosChannelMessage) {
 	photoSetsChan := make(chan []string)
 	photosChan := make(chan *PhotosChannelMessage)
@@ -255,6 +318,9 @@ func processPhotoSets(photosets []PhotoSet) (<-chan []string, <-chan *PhotosChan
 
 func processPhotos(photoSet PhotosPhotoSet, photosChan chan *PhotosChannelMessage) {
 	photoSetId := photoSet.Id
+	if photoSetId == "" {
+		photoSetId = NOT_IN_SET
+	}
 	photoCount := 0
 	errorCount := 0
 	photoSetCount := len(photoSet.Photo)
