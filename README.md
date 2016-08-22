@@ -1,5 +1,5 @@
 ### Intoduction
-Go Flickr Backup is a simple command-line tool to backup your Flickr photos from photosets, written in Go. It doesn't do everything, but you should be able to modify it fairly easily.
+Go Flickr Backup is a simple command-line tool, written in the Go Programming language (golang), to backup your Flickr photos from photosets, written in Go. It doesn't do everything, but you should be able to modify it fairly easily.
 
 ### Features
 * Retries for photo downloads
@@ -54,6 +54,12 @@ Note: by default, `backup` will download `10` photosets at page `1`. (If you hav
 ```
 
 You could just download all your sets at once. The number of sets you have, the number of photos in each set, and the size of photos in sets will affect the count of errors you may encounter.
+
+##### Backing up photos not in sets
+You can also download photos that are not in sets using the `-notinset` flag:
+```
+./backup -notinset -per-page 10
+```
 
 ### Contributing
 The code here isn't as clean as I'd like, but it's pretty straightfoward to play around with.  Time permitting, I intend to continue to make it better. But... I'd love contributions - pull requests welcome. I'm also relatively new to Go, so I'm looking forward to up my idiomatic Go chops.
